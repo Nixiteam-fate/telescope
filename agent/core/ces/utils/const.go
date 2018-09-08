@@ -4,13 +4,13 @@ package utils
 const NameSpace = "AGT.ECS"
 
 // ExternalServiceNS const namespace of BMS
-const ExternalServiceBMS = "SERVICE.BMS"
+const ExternalServiceBMS = "SYS.BMS"
 
 // TagBMS const prefix to distinguish BMS from meta_data
-const TagBMS = "physical"
+const TagBMS = "__type_baremetal"
 
 // TagServiceBMS const field of BMS from meta_data
-const TagServiceBMS = "metering.resourcespeccode"
+const TagServiceBMS = "metering.resourcespectype"
 
 // TTLOneHour const TTL of one hour
 const TTLOneHour = 3600

@@ -40,33 +40,3 @@ func SendMetricData(url string, data *model.InputMetric, isAggregate bool) {
 		logs.GetCesLogger().Infof("Failed to send metric and the response code:%d", res.StatusCode)
 	}
 }
-
-// SendProcessInfo used for ces post process-info api
-func SendProcessInfo(url string, plist model.ChProcessList) {
-
-	processData, err := json.Marshal(model.BuildProcessInfoByList(plist))
-
-	if err != nil {
-		logs.GetCesLogger().Infof("Failed marshall ces process info.\n")
-		return
-	}
-
-	request, rErr := http.NewRequest("POST", url, bytes.NewBuffer(processData))
-	if rErr != nil {
-		logs.GetCesLogger().Errorf("Create request Error:", rErr.Error())
-	}
-
-	res, err := utils.HTTPSend(request, ces_utils.Service)
-
-	if err != nil {
-		logs.GetCesLogger().Errorf("request error %s", err.Error())
-		return
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode == http.StatusCreated { //TODO the codes need be optimized
-		logs.GetCesLogger().Info("Send process info success")
-	} else {
-		logs.GetCesLogger().Infof("Failed to send ces process info and the response code:%d", res.StatusCode)
-	}
-}

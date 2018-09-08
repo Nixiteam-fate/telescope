@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/huaweicloud/telescope/agent/core/upgrade"
 	"fmt"
 	"os"
 
@@ -19,11 +18,7 @@ func main() {
 			return
 		case "stop":
 			logs.GetLogger().Info("Agent will send stop signal")
-			manager.HandleSignalDirect(manager.SIG_STOP)
-			return
-		case "upgrade":
-			logs.GetLogger().Info("This will send upgrade signal")
-			manager.HandleSignalDirect(upgrade.SIG_UPGRADE)
+			manager.HandleSignalDirect()
 			return
 		}
 
@@ -34,7 +29,6 @@ func main() {
 	serviceManager.Init()
 	serviceManager.RegisterService()
 	serviceManager.InitService()
-	serviceManager.HeartBeat()
 	serviceManager.StartService()
 	fmt.Println("Agent starts successfully.")
 	logs.GetLogger().Info("This is agent main")

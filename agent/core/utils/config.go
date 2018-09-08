@@ -107,26 +107,28 @@ func ReadConfig() (*GeneralConfig, error) {
 // Initialize configuration
 func InitConfig() {
 	var err error
-	if config == nil || err != nil {
-		mutex.Lock()
-		defer mutex.Unlock()
-		config, err = ReadConfig()
-		for {
-			if config == nil || err != nil {
-				logs.GetLogger().Errorf("Init common config file error is %s", err.Error())
-				time.Sleep(time.Second * 5)
-				config, err = ReadConfig()
-			} else {
-				return
-			}
+	mutex.Lock()
+	defer mutex.Unlock()
+	config, err = ReadConfig()
+	for {
+		if config == nil || err != nil{
+			logs.GetLogger().Errorf("Init common config file error is %s", err.Error())
+			time.Sleep(time.Second * 5)
+			config, err = ReadConfig()
+		} else {
+			return
 		}
 	}
 
 }
 
+func isConfigValid()bool{
+	return config != nil && config.InstanceId != ""
+}
+
 // Get wrapper
 func GetConfig() *GeneralConfig {
-	if config == nil {
+	if !isConfigValid() {
 		InitConfig()
 	}
 

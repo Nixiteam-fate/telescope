@@ -21,7 +21,6 @@ var AgentName string
 var DaemonName string
 var AgentProcess *os.Process
 
-var upgradeSignal = make(chan *agent.Info, 1)
 var isUpgrading = false
 var isStopping = false
 
@@ -49,31 +48,6 @@ func init() {
 
 	AgentVersion, _ = process.GetAgentVersion(AgentHome + "/" + AgentName)
 	logs.GetLogger().Infof("Current agent version: %s", AgentVersion)
-}
-
-// wait signal to do upgrade
-func upgradeAgent() {
-	for {
-		info := <-upgradeSignal
-		if AgentVersion == info.Version {
-			logs.GetLogger().Debugf("Agent version is already:%s", AgentVersion)
-			continue
-		}
-		isUpgrading = true
-		proc, err := upgrade.DoUpgrade(AgentHome, AgentTmpHome, AgentName, DaemonName, info, AgentProcess)
-		if err != nil {
-			logs.GetLogger().Errorf("Upgrade failed, error is not nil:%s", err.Error())
-		}
-		if proc == nil {
-			logs.GetLogger().Errorf("Upgrade failed, exit process, err:%s", err.Error())
-			os.Exit(-1)
-		}
-		AgentProcess = proc
-
-		AgentVersion, _ = process.GetAgentVersion(AgentHome + "/" + AgentName)
-		logs.GetLogger().Infof("New agent version: %s", AgentVersion)
-		isUpgrading = false
-	}
 }
 
 // start agent
@@ -152,8 +126,6 @@ func run() {
 	start := make(chan bool)
 	startAgent()
 	go startMonitor()
-	go upgrade.ScanAgentTmpDir(AgentTmpHome, AgentName, upgradeSignal)
-	go upgradeAgent()
 	<-start
 }
 

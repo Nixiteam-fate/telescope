@@ -1,11 +1,6 @@
 package model
 
 import (
-	"crypto/md5"
-	"fmt"
-	"regexp"
-	"strings"
-
 	ces_utils "github.com/huaweicloud/telescope/agent/core/ces/utils"
 	"github.com/huaweicloud/telescope/agent/core/utils"
 )
@@ -17,7 +12,7 @@ const GBConversion = 1024 * 1024 * 1024
 type Metric struct {
 	MetricName   string  `json:"metric_name"`
 	MetricValue  float64 `json:"metric_value"`
-	MetricPrefix string  `json:"metric_prefix,omitempty"`
+	ExtraDimension *DimensionType  `json:"extra_dimen,omitempty"`
 }
 
 // InputMetric the type for input metric
@@ -108,13 +103,15 @@ var metricUnitMap = map[string]string{
 	"disk_writeTime":               "ms/Count",
 	"disk_readTime":                "ms/Count",
 	"disk_ioUtils":                 "%",
-	"disk_fs_rwstate":				 "",
 	"proc_cpu":                     "%",
 	"proc_mem":                     "%",
 	"proc_file":                    "Count",
 	"gpu_performance_state":        "",
 	"gpu_usage_gpu":                "%",
 	"gpu_usage_mem":                "%",
+	"load_average1":				 "Task/CPU",
+	"load_average5":				 "Task/CPU",
+	"load_average15":				 "Task/CPU",
 }
 
 // BuildMetric build metric as input metric
@@ -133,8 +130,8 @@ func BuildCesMetricData(inputMetric *InputMetric, isAggregated bool) CesMetricDa
 
 	dimension.Name = ces_utils.DimensionName
 	dimension.Value = utils.GetConfig().InstanceId
-	dimensions := make([]DimensionType, 1)
-	dimensions[0] = dimension
+	dimensions := []DimensionType{}
+	dimensions = append(dimensions, dimension)
 	collectTime := inputMetric.CollectTime
 	namespace := ces_utils.NameSpace
 
@@ -152,20 +149,12 @@ func BuildCesMetricData(inputMetric *InputMetric, isAggregated bool) CesMetricDa
 	for _, metric := range inputMetric.Data {
 
 		var newMetricData CesMetricData
-		newMetricData.Metric.Dimensions = dimensions
 
 		newMetricData.Metric.MetricName = metric.MetricName
-		//metric name has two info ; use hashid and {metricname,MetricPrefix} replace it
-		if metric.MetricPrefix != "" {
-			newMetricData.Metric.MetricName = generateHashID(metric.MetricPrefix + metric.MetricName)
-			newMetricData.Metric.MetricExtraInfo = &CesMeticExtraInfo{OriginMetricName: metric.MetricName, MetricPrefix: metric.MetricPrefix}
+		if (metric.ExtraDimension != nil) {
+			newMetricData.Metric.Dimensions = append(dimensions, *metric.ExtraDimension)
 		} else {
-			// almost for metric name is too long, no scene now, if metric get in the follow logic, it's a new metric
-			aliasName := AliasMetricName(metric.MetricName)
-			if aliasName != "" {
-				newMetricData.Metric.MetricName = aliasName
-				newMetricData.Metric.MetricExtraInfo = &CesMeticExtraInfo{OriginMetricName: metric.MetricName}
-			}
+			newMetricData.Metric.Dimensions = dimensions
 		}
 
 		newMetricData.Metric.Namespace = namespace
@@ -176,114 +165,13 @@ func BuildCesMetricData(inputMetric *InputMetric, isAggregated bool) CesMetricDa
 
 		cesMetricDataArr = append(cesMetricDataArr, newMetricData)
 
-		cesMetricDataArr = setOldMetricData(cesMetricDataArr, newMetricData, metric)
 	}
-
 	return cesMetricDataArr
 
-}
-
-func getOldMetricName(metricName, MetricPrefix string) string {
-
-	if MetricPrefix == "" {
-		return metricName
-	}
-
-	//disk metric
-	if strings.HasPrefix(metricName, "disk_") {
-		diskPrefix := GetMountPrefix(MetricPrefix)
-		return diskPrefix + metricName
-	}
-
-	//proc metric
-	if strings.HasPrefix(metricName, "proc_") {
-		metricSuffix := strings.Split(metricName, "proc")[1]
-		return "proc_" + MetricPrefix + metricSuffix
-	}
-
-	//gpu metric
-	if strings.HasPrefix(metricName, "gpu_") {
-		return "slot" + MetricPrefix + "_" + metricName
-	}
-
-	//raid metric
-	if strings.HasSuffix(metricName, "_device") && strings.HasPrefix(MetricPrefix, "md") {
-		return MetricPrefix + "_" + metricName
-	}
-
-	return ""
-}
-
-//if needed set an old metric data for transition
-func setOldMetricData(cesMetricDataArr CesMetricDataArr, originMetricData CesMetricData, metric Metric) CesMetricDataArr {
-	// disk:slAsH
-	// gpu:slot
-	// raid:md
-	// proc
-	// 以上为 oldMetricName，则需要按照原来格式发送
-	// 发送时如果有拼接的出现特殊字符或者超长的   则发送id的指标
-
-	oldMetricName := getOldMetricName(metric.MetricName, metric.MetricPrefix)
-
-	// in old strategy ,the metric has an the other metric name, now resume it and send it
-	if oldMetricName != "" && oldMetricName != metric.MetricName {
-
-		oldMetricData := originMetricData
-		//init for old metric data
-		oldMetricData.Metric.MetricExtraInfo = nil
-		oldMetricData.Metric.MetricName = oldMetricName
-
-		aliasName := AliasMetricName(oldMetricData.Metric.MetricName)
-		//like disk metric name, need to add extro_info
-		if aliasName != "" {
-			oldMetricData.Metric.MetricName = aliasName
-			oldMetricData.Metric.MetricExtraInfo = &CesMeticExtraInfo{OriginMetricName: oldMetricName}
-		}
-
-		cesMetricDataArr = append(cesMetricDataArr, oldMetricData)
-	}
-
-	return cesMetricDataArr
-}
-
-func AliasMetricName(metricName string) string {
-
-	//more char: . and - and  ~ and /
-	pattern := "^([0-9A-Za-z]|_|/)*(-|~|\\.|/){1,}([0-9A-Za-z]|_|/|-|~|\\.)*$"
-	match, _ := regexp.MatchString(pattern, metricName)
-
-	if match {
-		return generateHashID(metricName)
-	}
-
-	pattern = "^([a-z]|[A-Z]){1}([a-z]|[A-Z]|[0-9]|_)*$"
-	match, _ = regexp.MatchString(pattern, metricName)
-	if match && len(metricName) > 64 {
-		return generateHashID(metricName)
-	}
-
-	return ""
-}
-
-func generateHashID(name string) string {
-	keyStr := []byte(name)
-	return "id_" + fmt.Sprintf("%x", md5.Sum(keyStr))
 }
 
 func getUnitByMetric(metricName string) string {
 
 	return metricUnitMap[metricName]
 
-}
-
-func GetMountPrefix(name string) string {
-	slashFlag := "SlAsH"
-	// for linux
-	diskPrefix := strings.Replace(name, "/", slashFlag, -1)
-	// for windows
-	diskPrefix = strings.Replace(diskPrefix, ":", "", -1)
-	// "_" used to seperate metricName from mountPoint
-	diskPrefix = diskPrefix + "_"
-
-	return diskPrefix
 }

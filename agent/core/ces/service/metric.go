@@ -9,13 +9,28 @@ import (
 	"github.com/huaweicloud/telescope/agent/core/ces/model"
 	"github.com/huaweicloud/telescope/agent/core/ces/report"
 	cesUtils "github.com/huaweicloud/telescope/agent/core/ces/utils"
-	"github.com/huaweicloud/telescope/agent/core/logs"
 	"github.com/huaweicloud/telescope/agent/core/utils"
-	"github.com/shirou/gopsutil/process"
 )
 
+func getPlugins()[]*model.PluginCommand{
+	if !config.GetConfig().Enable || !config.GetConfig().EnablePlugin{
+		return nil
+	}
+
+	if config.GetPluginConfig() == nil{
+		return nil
+	}
+
+	plugins := config.GetPluginConfig().Plugins
+
+	if len(plugins) > cesUtils.MaxPluginNum{
+		plugins = plugins[:cesUtils.MaxPluginNum]
+	}
+	return plugins
+}
+
 // StartMetricCollectTask cron job for metric collect
-func StartMetricCollectTask(data chan *model.InputMetric, agData chan model.InputMetricSlice) {
+func StartMetricCollectTask(agData chan model.InputMetricSlice) {
 
 	var collectorList []collectors.CollectorInterface
 
@@ -25,7 +40,6 @@ func StartMetricCollectTask(data chan *model.InputMetric, agData chan model.Inpu
 	collectorList = append(collectorList, &collectors.DiskCollector{})
 	collectorList = append(collectorList, &collectors.NetCollector{})
 	collectorList = append(collectorList, &collectors.LoadCollector{})
-	collectorList = append(collectorList, &collectors.ProcStatusCollector{})
 
 	metricSliceArr := make([]model.InputMetricSlice, len(collectorList))
 
@@ -39,56 +53,14 @@ func StartMetricCollectTask(data chan *model.InputMetric, agData chan model.Inpu
 	for _ = range ticker.C{
 		if config.GetConfig().Enable {
 			collectTime := time.Now().Unix() * 1000
-
-			allMetric := new(model.InputMetric)
-			allMetric.CollectTime = collectTime
-
-			allMetricData := []model.Metric{}
-
 			for i, collector := range collectorList {
 
 				tmp := collector.Collect(collectTime)
 
 				if tmp != nil {
-					for _, value := range tmp.Data {
-						allMetricData = append(allMetricData, value)
-					}
 					metricSliceArr[i] = append(metricSliceArr[i], tmp)
 				}
 			}
-
-			enableProcessList := config.GetConfig().EnableProcessList
-
-			if len(enableProcessList) > 0 {
-				processSliceArr := make([]model.InputMetricSlice, len(enableProcessList))
-
-				for j, eachProcess := range enableProcessList {
-					pid := eachProcess.Pid
-					isExist, _ := process.PidExists(pid)
-					if isExist {
-						eachProcess, _ := process.NewProcess(pid)
-						eachProcessCollector := new(collectors.ProcessCollector)
-						eachProcessCollector.Process = eachProcess
-						eachRes := eachProcessCollector.Collect(collectTime)
-						if eachRes != nil {
-							for _, value := range eachRes.Data {
-								allMetricData = append(allMetricData, value)
-							}
-							processSliceArr[j] = append(processSliceArr[j], eachRes)
-
-						}
-					}
-
-				}
-
-				newMetricSliceArr := make([]model.InputMetricSlice, len(collectorList)+len(enableProcessList))
-				copy(newMetricSliceArr, metricSliceArr)
-				copy(newMetricSliceArr[len(collectorList):(len(collectorList) + len(enableProcessList))], processSliceArr)
-				metricSliceArr = newMetricSliceArr
-			}
-
-			allMetric.Data = allMetricData
-			data <- allMetric
 			counter++
 
 			if counter == 6 {
@@ -113,10 +85,11 @@ func StartAggregateTask(agRes chan *model.InputMetric, agData chan model.InputMe
 	// aggregatorList = append(aggregatorList, &aggregate.MaxValue{})
 	// aggregatorList = append(aggregatorList, &aggregate.MinValue{})
 
+	plugins := getPlugins()
 	allMetric := new(model.InputMetric)
 	tmpData := []model.Metric{}
 	count := 0
-	collectorNum := 6
+	collectorNum := 5
 
 	for {
 		tmp := <-agData
@@ -135,18 +108,26 @@ func StartAggregateTask(agRes chan *model.InputMetric, agData chan model.InputMe
 			}
 
 		}
-		// count length is the collectorNum-1, now the num of collector is 6, and the enabled processes should be considered
-		enableProcessList := config.GetConfig().EnableProcessList
-		if count < collectorNum+len(enableProcessList)-1 {
-			count++
-			continue
-		} else {
-
+		// count length is the collectorNum-1, now the num of collector is 5, and the enabled processes should be considered
+		if count >= collectorNum - 1 {
+			if plugins != nil {
+				for _, plugins := range plugins {
+					tmp := plugins.PluginCmd()
+					if (tmp != nil) {
+						for _, value := range tmp.Data {
+							tmpData = append(tmpData, value)
+						}
+					}
+				}
+			}
 			allMetric.Data = tmpData
 			agRes <- allMetric
 			tmpData = []model.Metric{}
 			count = 0
 			allMetric = new(model.InputMetric)
+		} else {
+			count ++
+			continue
 		}
 
 	}
@@ -161,18 +142,10 @@ func BuildURL(destURI string) string {
 }
 
 // SendMetricTask task for post metric data
-func SendMetricTask(data, agRes chan *model.InputMetric) {
+func SendMetricTask(agRes chan *model.InputMetric) {
 	for {
-
-		select {
-		case metricDataOrigin := <-data:
-			logs.GetCesLogger().Debugf("origin data is: %v", *metricDataOrigin)
-			go report.SendMetricData(BuildURL(cesUtils.PostRawMetricDataURI), metricDataOrigin, false)
-		case metricDataAggregate := <-agRes:
-			logs.GetCesLogger().Debugf("aggregate data is %v", *metricDataAggregate)
-			time.Sleep(5 * time.Second)
-			go report.SendMetricData(BuildURL(cesUtils.PostAggregatedMetricDataURI), metricDataAggregate, true)
-		}
-
+		metricDataAggregate := <-agRes
+		time.Sleep(5 * time.Second)
+		go report.SendMetricData(BuildURL(cesUtils.PostAggregatedMetricDataURI), metricDataAggregate, true)
 	}
 }

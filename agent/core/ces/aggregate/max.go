@@ -19,12 +19,16 @@ func (maxValue *MaxValue) Aggregate(input model.InputMetricSlice) *model.InputMe
 	maxMetric := *input[0]
 
 	metricNameKeyMap := GenerateMetricNameKeyMap(&maxMetric.Data)
+	prefix := ""
 	for _, metricData := range input {
 
 		for _, metric := range metricData.Data {
 
-			if metric.MetricValue > metricNameKeyMap[metric.MetricPrefix+metric.MetricName].MetricValue {
-				metricNameKeyMap[metric.MetricPrefix+metric.MetricName].MetricValue = metric.MetricValue
+			if (metric.ExtraDimension != nil){
+				prefix = metric.ExtraDimension.Value
+			}
+			if metric.MetricValue > metricNameKeyMap[prefix + metric.MetricName].MetricValue{
+				metricNameKeyMap[prefix + metric.MetricName].MetricValue = metric.MetricValue
 			}
 		}
 
@@ -37,9 +41,12 @@ func (maxValue *MaxValue) Aggregate(input model.InputMetricSlice) *model.InputMe
 func GenerateMetricNameKeyMap(metrics *[]model.Metric) map[string]*model.Metric {
 
 	metricNameKeyMap := make(map[string]*model.Metric, 0)
-
+	prefix := ""
 	for index, _ := range *metrics {
-		metricNameKeyMap[(*metrics)[index].MetricPrefix+(*metrics)[index].MetricName] = &(*metrics)[index]
+		if ((*metrics)[index].ExtraDimension != nil){
+			prefix = (*metrics)[index].ExtraDimension.Value
+		}
+		metricNameKeyMap[prefix + (*metrics)[index].MetricName] = &(*metrics)[index]
 	}
 
 	return metricNameKeyMap

@@ -122,6 +122,7 @@ echo "Start to install telescope..."
 mkdir -p ${INSTALL_DIR}
 mkdir -p ${INSTALL_DIR}/log
 cp -R ${CURRENT_DIR}/bin ${INSTALL_DIR}
+cp -R ${CURRENT_DIR}/plugins ${INSTALL_DIR}
 cp ${CURRENT_DIR}/telescoped ${INSTALL_DIR}
 cp ${CURRENT_DIR}/uninstall.sh ${INSTALL_DIR}
 

@@ -5,9 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 
 	"github.com/huaweicloud/telescope/agent/core/logs"
-	"github.com/huaweicloud/telescope/agent/core/upgrade"
 )
 
 var (
@@ -28,8 +28,6 @@ func GetAgentVersion(binPath string) (string, error) {
 func SendAgentSignal(binPath string, signal os.Signal) error {
 	var cmd *exec.Cmd
 	switch signal {
-	case upgrade.SIG_UPGRADE:
-		cmd = exec.Command(binPath, "upgrade")
 	case manager.SIG_STOP:
 		cmd = exec.Command(binPath, "stop")
 	default:
@@ -73,7 +71,7 @@ func KillProcess(proc *os.Process) error {
 	if osName == "windows" {
 		return proc.Kill()
 	} else {
-		err := proc.Signal(upgrade.SIG_UPGRADE)
+		err := proc.Signal(syscall.SIGKILL)
 		if err != nil {
 			logs.GetLogger().Errorf("Stop(SIG_UPGRADE) linux agent process failed, err:%s", err.Error())
 			return err
@@ -108,8 +106,4 @@ func SigAndKillProcess(binPath string, signal os.Signal, proc *os.Process) error
 
 func StopProcess(binPath string, proc *os.Process) error {
 	return SigAndKillProcess(binPath, manager.SIG_STOP, proc)
-}
-
-func UpgradeProcess(binPath string, proc *os.Process) error {
-	return SigAndKillProcess(binPath, upgrade.SIG_UPGRADE, proc)
 }

@@ -64,12 +64,12 @@ function package()
     mkdir ${PACKAGE_DIR}/${PACKAGE_NAME}
     cd ${PACKAGE_DIR}/${PACKAGE_NAME}
     mkdir bin
+    mkdir plugins
     
     cd $CURRENTDIR/agent
     mv ${AGENT_NAME} ${PACKAGE_DIR}/${PACKAGE_NAME}/bin
     cp conf.json ${PACKAGE_DIR}/${PACKAGE_NAME}/bin 
     cp conf_ces.json ${PACKAGE_DIR}/${PACKAGE_NAME}/bin
-    cp conf_lts.json ${PACKAGE_DIR}/${PACKAGE_NAME}/bin
     cp record.json ${PACKAGE_DIR}/${PACKAGE_NAME}/bin
     if [ ${OS} = "windows" ]; then
         cp windows_os_log_record.json ${PACKAGE_DIR}/${PACKAGE_NAME}/bin
@@ -84,6 +84,10 @@ function package()
         cp install.sh ${PACKAGE_DIR}/${PACKAGE_NAME}
         cp uninstall.sh ${PACKAGE_DIR}/${PACKAGE_NAME}
         cp telescoped ${PACKAGE_DIR}/${PACKAGE_NAME}
+        cp telscoped
+
+        cd $CURRENTDIR/agent/plugins/Linux
+        cp ./* ${PACKAGE_DIR}/${PACKAGE_NAME}/plugins
     else
         cd $CURRENTDIR/deploy/windows
         cp install.bat ${PACKAGE_DIR}/${PACKAGE_NAME}

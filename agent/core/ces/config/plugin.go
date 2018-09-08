@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"github.com/huaweicloud/telescope/agent/core/ces/model"
 	"os"
 	"sync"
 
@@ -12,13 +13,7 @@ import (
 
 // PluginConfig is the type for plugins config file
 type PluginConfig struct {
-	Plugins []*EachPluginConfig `json:"plugins"`
-}
-
-// EachPluginConfig is the type for each plugin config
-type EachPluginConfig struct {
-	Path     string `json:"path"`
-	Crontime int    `json:"crontime"`
+	Plugins []*model.PluginCommand  `json:"plugins"`
 }
 
 var (

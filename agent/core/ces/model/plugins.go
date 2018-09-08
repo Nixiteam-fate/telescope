@@ -2,54 +2,19 @@ package model
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os/exec"
-	"time"
-
-	"github.com/huaweicloud/telescope/agent/core/ces/config"
-	ces_utils "github.com/huaweicloud/telescope/agent/core/ces/utils"
 	"github.com/huaweicloud/telescope/agent/core/logs"
 	"github.com/huaweicloud/telescope/agent/core/utils"
+	"io/ioutil"
+	"os/exec"
 )
 
-// PluginScheduler is the type for plugin scheduler
-type PluginScheduler struct {
-	Ticker *time.Ticker
-	Plugin *config.EachPluginConfig
-}
-
-// NewPluginScheduler create a plugin scheduler by a plugin config
-func NewPluginScheduler(p *config.EachPluginConfig) *PluginScheduler {
-	scheduler := PluginScheduler{Plugin: p}
-	if p.Crontime < ces_utils.DefaultPluginCronTime {
-		logs.GetCesLogger().Errorf("Plugin crontime is %v, less than the default crontime %v seconds. Use default crontime.", p.Crontime, ces_utils.DefaultPluginCronTime)
-		p.Crontime = ces_utils.DefaultPluginCronTime
-	}
-	scheduler.Ticker = time.NewTicker(time.Duration(p.Crontime) * time.Second)
-	return &scheduler
-}
-
-// Schedule cron job for plugin collector
-func (ps *PluginScheduler) Schedule(data chan *InputMetric) {
-
-	for {
-		select {
-		case <-ps.Ticker.C:
-			go func() {
-				pluginData := PluginCmd(ps.Plugin)
-				if pluginData != nil {
-					data <- pluginData
-				}
-
-			}()
-
-		}
-	}
-
+//EachPluginConfig is the type for each plugin config
+type PluginCommand struct {
+	Path	string `json:"path"`
 }
 
 // PluginCmd output the plugin metric data by a plugin config
-func PluginCmd(plugin *config.EachPluginConfig) *InputMetric {
+func (plugin *PluginCommand) PluginCmd() *InputMetric {
 
 	var result InputMetric
 

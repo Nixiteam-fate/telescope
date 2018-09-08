@@ -31,19 +31,24 @@ func (averageValue *AvgValue) Aggregate(input model.InputMetricSlice) *model.Inp
 	metricCount := len((*input[0]).Data)
 
 	sum := make(map[string]float64, metricCount)
-
+	prefix := ""
 	for _, metricData := range input {
 
 		for _, metric := range metricData.Data {
-			sum[metric.MetricPrefix+metric.MetricName] = sum[metric.MetricPrefix+metric.MetricName] + metric.MetricValue
+			if (metric.ExtraDimension != nil){
+				prefix = metric.ExtraDimension.Value
+			}
+			sum[prefix + metric.MetricName] = sum[prefix + metric.MetricName] + metric.MetricValue
 		}
 
 	}
-
+	prefix = ""
 	for _, metric := range avgMetric.Data {
-
-		avg := sum[metric.MetricPrefix+metric.MetricName] / float64(dataCount)
-		metricNameKeyMap[metric.MetricPrefix+metric.MetricName].MetricValue, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", avg), 64)
+		if (metric.ExtraDimension != nil){
+			prefix = metric.ExtraDimension.Value
+		}
+		avg := sum[prefix + metric.MetricName]/float64(dataCount)
+		metricNameKeyMap[prefix + metric.MetricName].MetricValue, _ = strconv.ParseFloat(fmt.Sprint("%.2f", avg), 64)
 	}
 
 	return &avgMetric

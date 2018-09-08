@@ -14,7 +14,6 @@ import (
 type CESConfig struct {
 	Enable            bool
 	Endpoint          string
-	EnableProcessList []HbProcess `json:"enable_processes"`
 	EnablePlugin      bool
 	ExternalService   string
 }
@@ -85,7 +84,6 @@ func GetConfig() *CESConfig {
 // ReloadConfig reload config to support hot load config file
 func ReloadConfig() *CESConfig {
 	originalEnable := cesConfig.Enable
-	originalEnableProcessList := cesConfig.EnableProcessList
 	newCesConfig, err := ReadConfig()
 	for {
 		if newCesConfig == nil || err != nil {
@@ -94,7 +92,6 @@ func ReloadConfig() *CESConfig {
 			newCesConfig, err = ReadConfig()
 		} else {
 			newCesConfig.Enable = originalEnable
-			newCesConfig.EnableProcessList = originalEnableProcessList
 			cesConfig = newCesConfig
 			return cesConfig
 		}

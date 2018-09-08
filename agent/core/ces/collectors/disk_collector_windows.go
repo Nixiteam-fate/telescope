@@ -10,6 +10,7 @@ import (
 type DiskCollector struct {
 }
 
+const MOUNT_POINT  = "mount_point"
 // Collect implement the disk Collector
 func (d *DiskCollector) Collect(collectTime int64) *model.InputMetric {
 
@@ -27,20 +28,20 @@ func (d *DiskCollector) Collect(collectTime int64) *model.InputMetric {
 
 		diskName := eachDisk.Device
 
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_total", MetricValue: float64(diskStats.Total) / model.GBConversion, MetricPrefix: diskMountpoint})
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_free", MetricValue: float64(diskStats.Free) / model.GBConversion, MetricPrefix: diskMountpoint})
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_used", MetricValue: float64(diskStats.Used) / model.GBConversion, MetricPrefix: diskMountpoint})
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_usedPercent", MetricValue: float64(diskStats.UsedPercent), MetricPrefix: diskMountpoint})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_total", MetricValue: float64(diskStats.Total) / model.GBConversion, ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_free", MetricValue: float64(diskStats.Free) / model.GBConversion, ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_used", MetricValue: float64(diskStats.Used) / model.GBConversion, ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_usedPercent", MetricValue: float64(diskStats.UsedPercent), ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
 
 		if diskInfo[diskName].Name == "" {
 			logs.GetCesLogger().Infof("No IO data for the disk : %v", diskName)
 			continue
 		}
 
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_read_bytes_rate", MetricValue: float64(diskInfo[diskName].ReadBytes), MetricPrefix: diskMountpoint})
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_read_requests_rate", MetricValue: float64(diskInfo[diskName].ReadCount), MetricPrefix: diskMountpoint})
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_write_bytes_rate", MetricValue: float64(diskInfo[diskName].WriteBytes), MetricPrefix: diskMountpoint})
-		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_write_requests_rate", MetricValue: float64(diskInfo[diskName].WriteCount), MetricPrefix: diskMountpoint})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_read_bytes_rate", MetricValue: float64(diskInfo[diskName].ReadBytes), ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_read_requests_rate", MetricValue: float64(diskInfo[diskName].ReadCount), ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_write_bytes_rate", MetricValue: float64(diskInfo[diskName].WriteBytes), ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
+		fieldsG = append(fieldsG, model.Metric{MetricName: "disk_agt_write_requests_rate", MetricValue: float64(diskInfo[diskName].WriteCount), ExtraDimension:&model.DimensionType{Name:MOUNT_POINT, Value:diskMountpoint}})
 	}
 
 	result.Data = fieldsG

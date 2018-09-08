@@ -18,11 +18,15 @@ func (minValue *MinValue) Aggregate(input model.InputMetricSlice) *model.InputMe
 	}
 	minMetric := *input[0]
 	metricNameKeyMap := GenerateMetricNameKeyMap(&minMetric.Data)
+	prefix := ""
 	for _, metricData := range input {
 
 		for _, metric := range metricData.Data {
-			if metric.MetricValue < metricNameKeyMap[metric.MetricPrefix+metric.MetricName].MetricValue {
-				metricNameKeyMap[metric.MetricPrefix+metric.MetricName].MetricValue = metric.MetricValue
+			if (metric.ExtraDimension != nil){
+				prefix = metric.ExtraDimension.Value
+			}
+			if metric.MetricValue < metricNameKeyMap[prefix + metric.MetricName].MetricValue{
+				metricNameKeyMap[prefix + metric.MetricName].MetricValue = metric.MetricValue
 			}
 		}
 
